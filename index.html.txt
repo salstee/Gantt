@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Puheohjattu Gantt</title>
+
+<link rel="manifest" href="manifest.json">
+
+<style>
+body { font-family: Arial; margin: 0; padding: 10px; }
+button { width: 100%; padding: 14px; font-size: 16px; margin-bottom: 10px; }
+.task { display: flex; margin: 6px 0; }
+.task-name { width: 120px; font-size: 14px; }
+.bar { height: 22px; background: #4CAF50; border-radius: 4px; }
+.timeline { flex: 1; }
+</style>
+</head>
+
+<body>
+
+<h2>🎙️ Puheohjattu Gantt</h2>
+
+<button onclick="listen()">🎤 Puhu</button>
+<button onclick="exportPDF()">📄 PDF</button>
+<button onclick="exportExcel()">📊 Excel</button>
+
+<div id="gantt"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+<script>
+const synth = window.speechSynthesis;
+let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+
+function speak(text) {
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "fi-FI";
+  synth.speak(u);
+}
+
+function listen() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return alert("Puhe ei tuettu");
+  const rec = new SR();
+  rec.lang = "fi-FI";
+  rec.start();
+  rec.onresult = e => handleSpeech(e.results[0][0].transcript);
+}
+
+function handleSpeech(text) {
+  // luonnollisempi tulkinta
+  const r = /(.+?) alkaa (.+?) päättyy (.+)/i;
+  const m = text.match(r);
+  if (!m) return speak("En ymmärtänyt");
+
+  const name = m[1].replace("lisää", "").trim();
+  const start = parseNaturalDate(m[2]);
+  const end = parseNaturalDate(m[3]);
+
+  tasks.push({ name, start, end });
+  tasks.sort((a,b)=>a.start-b.start);
+  localStorage.setItem("tasks", JSON.stringify(tasks));
+
+  speak(`Lisäsin tehtävän ${name}`);
+  render();
+}
+
+function parseNaturalDate(t) {
+  if (t.includes("huomenna")) {
+    const d = new Date(); d.setDate(d.getDate()+1); return d;
+  }
+  if (t.includes("ensi")) {
+    const d = new Date(); d.setDate(d.getDate()+7); return d;
+  }
+  const [d,m,y] = t.match(/\d+/g);
+  return new Date(y, m-1, d);
+}
+
+function render() {
+  const g = document.getElementById("gantt");
+  g.innerHTML = "";
+  if (!tasks.length) return;
+
+  const min = Math.min(...tasks.map(t=>t.start));
+  const max = Math.max(...tasks.map(t=>t.end));
+  const span = (max-min)/86400000 + 1;
+
+  tasks.forEach(t=>{
+    const row = document.createElement("div");
+    row.className = "task";
+
+    const n = document.createElement("div");
+    n.className = "task-name";
+    n.textContent = t.name;
+
+    const tl = document.createElement("div");
+    tl.className = "timeline";
+
+    const b = document.createElement("div");
+    b.className = "bar";
+
+    const off = (t.start-min)/86400000;
+    const dur = (t.end-t.start)/86400000+1;
+
+    b.style.marginLeft = off/span*100+"%";
+    b.style.width = dur/span*100+"%";
+
+    tl.appendChild(b);
+    row.append(n,tl);
+    g.appendChild(row);
+  });
+}
+
+function exportPDF() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF();
+  tasks.forEach((t,i)=>{
+    pdf.text(`${t.name} ${t.start.toLocaleDateString()} - ${t.end.toLocaleDateString()}`,10,10+i*10);
+  });
+  pdf.save("gantt.pdf");
+}
+
+function exportExcel() {
+  const ws = XLSX.utils.json_to_sheet(tasks.map(t=>({
+    Työmaa:t.name,
+    Alkaa:t.start.toLocaleDateString(),
+    Päättyy:t.end.toLocaleDateString()
+  })));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Gantt");
+  XLSX.writeFile(wb, "gantt.xlsx");
+}
+
+render();
+</script>
+
+</body>
+</html>
