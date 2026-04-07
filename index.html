@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gantt – Kosteusvahinko</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --purku:          #E74C3C;
+    --purku-light:    #FADBD8;
+    --kuivaus:        #3498DB;
+    --kuivaus-light:  #D6EAF8;
+    --rakennus:       #27AE60;
+    --rakennus-light: #D5F5E3;
+    --note:           #F39C12;
+    --note-light:     #FDEBD0;
+    --bg:             #F4F6F9;
+    --card:           #FFFFFF;
+    --text:           #2C3E50;
+    --muted:          #7F8C8D;
+    --border:         #DDE1E7;
+    --radius:         10px;
+    --shadow:         0 2px 8px rgba(0,0,0,.10);
+  }
+
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, #2C3E50 0%, #34495E 100%);
+    color: #fff; padding: 16px 20px; display: flex; align-items: center; gap: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.3);
+  }
+  header h1 { font-size: 1.3rem; font-weight: 700; }
+  header span { font-size: 1.5rem; }
+
+  /* ── Layout ── */
+  .container { max-width: 1200px; margin: 0 auto; padding: 20px 16px; }
+
+  /* ── Controls card ── */
+  .controls {
+    background: var(--card); border-radius: var(--radius); padding: 18px;
+    box-shadow: var(--shadow); margin-bottom: 20px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+  }
+  @media(max-width:600px){ .controls{ grid-template-columns:1fr; } }
+
+  .field label { display: block; font-size: .78rem; font-weight: 600; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .5px; }
+  .field select, .field input {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 1rem; color: var(--text); background: var(--bg);
+    transition: border-color .2s;
+  }
+  .field select:focus, .field input:focus { outline: none; border-color: #3498DB; }
+
+  /* ── Buttons row ── */
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+  .btn {
+    flex: 1; min-width: 120px; padding: 12px 16px; border: none; border-radius: 8px;
+    font-size: .95rem; font-weight: 600; cursor: pointer; display: flex; align-items: center;
+    justify-content: center; gap: 6px; transition: transform .1s, opacity .2s;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-mic  { background: #E74C3C; color: #fff; }
+  .btn-mic.recording { background: #C0392B; animation: pulse 1s infinite; }
+  .btn-add  { background: #3498DB; color: #fff; }
+  .btn-clear{ background: var(--muted); color: #fff; }
+  .btn-pdf  { background: #8E44AD; color: #fff; }
+  .btn-excel{ background: #27AE60; color: #fff; }
+
+  @keyframes pulse { 0%,100%{ box-shadow:0 0 0 0 rgba(192,57,43,.6); } 50%{ box-shadow:0 0 0 10px rgba(192,57,43,0); } }
+
+  /* ── Status bar ── */
+  #status {
+    background: var(--card); border-radius: 8px; padding: 10px 14px;
+    font-size: .9rem; color: var(--muted); margin-bottom: 16px;
+    border-left: 4px solid var(--border); min-height: 38px;
+    box-shadow: var(--shadow);
+  }
+  #status.ok   { border-color: var(--rakennus); color: #1a7a40; }
+  #status.err  { border-color: var(--purku);    color: #a93226; }
+  #status.info { border-color: var(--note);     color: #935116; }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    background: var(--card); border-radius: var(--radius); padding: 14px 18px;
+    box-shadow: var(--shadow); margin-bottom: 20px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 7px; font-size: .88rem; }
+  .legend-dot  { width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0; }
+
+  /* ── Gantt wrapper ── */
+  .gantt-card {
+    background: var(--card); border-radius: var(--radius); padding: 18px;
+    box-shadow: var(--shadow); overflow-x: auto;
+  }
+  .gantt-card h2 { font-size: 1rem; margin-bottom: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+
+  /* ── Gantt table ── */
+  #gantt { min-width: 700px; }
+
+  .gantt-header { display: flex; margin-bottom: 6px; }
+  .gantt-header .col-name { width: 160px; flex-shrink: 0; }
+  .gantt-header .col-worker { width: 120px; flex-shrink: 0; font-size: .78rem; }
+  .gantt-header .col-timeline { flex: 1; display: flex; }
+  .gantt-header .day-label { font-size: .7rem; color: var(--muted); text-align: center; overflow: hidden; }
+
+  .gantt-row {
+    display: flex; align-items: center; min-height: 38px; margin-bottom: 5px;
+    border-radius: 6px; transition: background .15s;
+  }
+  .gantt-row:hover { background: var(--bg); }
+  .gantt-row .col-name {
+    width: 160px; flex-shrink: 0; padding: 0 10px 0 4px;
+    font-size: .88rem; font-weight: 600;
+  }
+  .gantt-row .col-worker {
+    width: 120px; flex-shrink: 0; padding: 0 10px 0 0;
+    font-size: .8rem; color: var(--muted);
+  }
+  .gantt-row .col-timeline { flex: 1; position: relative; height: 30px; }
+
+  .bar {
+    position: absolute; top: 4px; height: 22px; border-radius: 6px;
+    display: flex; align-items: center; padding: 0 6px; font-size: .75rem;
+    font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden;
+    cursor: default; box-shadow: 0 1px 4px rgba(0,0,0,.2);
+    transition: filter .15s;
+  }
+  .bar:hover { filter: brightness(1.1); }
+  .bar.purku       { background: var(--purku); }
+  .bar.kuivaus     { background: var(--kuivaus); }
+  .bar.rakennus    { background: var(--rakennus); }
+  .bar.muistiinpano{ background: var(--note); }
+
+  /* ── Notes list ── */
+  .notes-card {
+    background: var(--card); border-radius: var(--radius); padding: 18px;
+    box-shadow: var(--shadow); margin-top: 20px;
+  }
+  .notes-card h2 { font-size: 1rem; margin-bottom: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .note-item {
+    display: flex; align-items: flex-start; gap: 10px; padding: 10px 0;
+    border-bottom: 1px solid var(--border); font-size: .9rem;
+  }
+  .note-item:last-child { border-bottom: none; }
+  .note-badge {
+    padding: 2px 8px; border-radius: 20px; font-size: .75rem; font-weight: 700;
+    flex-shrink: 0; margin-top: 2px;
+  }
+  .badge-purku    { background: var(--purku-light);    color: var(--purku); }
+  .badge-kuivaus  { background: var(--kuivaus-light);  color: var(--kuivaus); }
+  .badge-rakennus { background: var(--rakennus-light); color: var(--rakennus); }
+  .badge-note     { background: var(--note-light);     color: var(--note); }
+  .note-text { flex: 1; }
+  .note-meta { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+  .note-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; padding: 0 4px; }
+  .note-del:hover { color: var(--purku); }
+
+  /* ── Empty state ── */
+  .empty { text-align: center; padding: 40px 0; color: var(--muted); font-size: .95rem; }
+  .empty span { font-size: 2rem; display: block; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <span>📋</span>
+  <h1>Kosteusvahinko Gantt – Puheohjaus</h1>
+</header>
+
+<div class="container">
+
+  <!-- Controls -->
+  <div class="controls">
+    <div class="field">
+      <label>Työntekijä</label>
+      <select id="workerSelect">
+        <option value="">— Valitse työntekijä —</option>
+        <option>Matti Virtanen</option>
+        <option>Liisa Korhonen</option>
+        <option>Juhani Mäkinen</option>
+        <option>Sari Leinonen</option>
+        <option>Pekka Nieminen</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Tai kirjoita nimi</label>
+      <input id="workerCustom" type="text" placeholder="Nimi...">
+    </div>
+    <div class="field">
+      <label>Työvaihe</label>
+      <select id="phaseSelect">
+        <option value="purku">🔴 Purku</option>
+        <option value="kuivaus">🔵 Kuivaus</option>
+        <option value="rakennus">🟢 Jälleenrakennus</option>
+        <option value="muistiinpano">🟡 Muistiinpano</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Tehtävä / Kohde</label>
+      <input id="taskName" type="text" placeholder="esim. Kylpyhuone">
+    </div>
+    <div class="field">
+      <label>Alkupäivä</label>
+      <input id="startDate" type="date">
+    </div>
+    <div class="field">
+      <label>Loppupäivä</label>
+      <input id="endDate" type="date">
+    </div>
+  </div>
+
+  <!-- Buttons -->
+  <div class="btn-row">
+    <button class="btn btn-mic" id="micBtn" onclick="toggleMic()">🎤 Puhu</button>
+    <button class="btn btn-add" onclick="addManual()">➕ Lisää</button>
+    <button class="btn btn-pdf" onclick="exportPDF()">📄 PDF</button>
+    <button class="btn btn-excel" onclick="exportExcel()">📊 Excel</button>
+    <button class="btn btn-clear" onclick="clearAll()">🗑️ Tyhjennä</button>
+  </div>
+
+  <!-- Status -->
+  <div id="status">Valmis – paina 🎤 Puhu tai täytä lomake ja paina ➕ Lisää</div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--purku)"></div> Purku</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--kuivaus)"></div> Kuivaus</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--rakennus)"></div> Jälleenrakennus</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--note)"></div> Muistiinpano</div>
+  </div>
+
+  <!-- Gantt chart -->
+  <div class="gantt-card">
+    <h2>Aikajana</h2>
+    <div id="gantt"><div class="empty"><span>📅</span>Ei tehtäviä. Lisää puhumalla tai lomakkeella.</div></div>
+  </div>
+
+  <!-- Notes list -->
+  <div class="notes-card">
+    <h2>Tehtävät &amp; Muistiinpanot</h2>
+    <div id="notesList"><div class="empty"><span>📝</span>Ei merkintöjä vielä.</div></div>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+<script>
+/* ============================================================
+   DATA
+   ============================================================ */
+let tasks = JSON.parse(localStorage.getItem("gantt_tasks") || "[]");
+// Fix stored dates back to Date objects
+tasks = tasks.map(t => ({ ...t, start: new Date(t.start), end: new Date(t.end) }));
+
+function save() {
+  localStorage.setItem("gantt_tasks", JSON.stringify(tasks));
+}
+
+/* ============================================================
+   STATUS
+   ============================================================ */
+function setStatus(msg, type = "") {
+  const el = document.getElementById("status");
+  el.textContent = msg;
+  el.className = type;
+}
+
+/* ============================================================
+   WORKER HELPER
+   ============================================================ */
+function getWorker() {
+  const custom = document.getElementById("workerCustom").value.trim();
+  const selected = document.getElementById("workerSelect").value;
+  return custom || selected || "—";
+}
+
+/* ============================================================
+   MANUAL ADD
+   ============================================================ */
+function addManual() {
+  const name   = document.getElementById("taskName").value.trim();
+  const start  = document.getElementById("startDate").value;
+  const end    = document.getElementById("endDate").value;
+  const phase  = document.getElementById("phaseSelect").value;
+  const worker = getWorker();
+
+  if (!name)  { setStatus("Kirjoita tehtävän nimi.", "err"); return; }
+  if (!start) { setStatus("Valitse alkupäivä.", "err"); return; }
+  if (!end)   { setStatus("Valitse loppupäivä.", "err"); return; }
+  if (new Date(end) < new Date(start)) { setStatus("Loppupäivä ei voi olla ennen alkua.", "err"); return; }
+
+  pushTask(name, new Date(start), new Date(end), phase, worker);
+  setStatus(`Lisätty: ${name} (${phaseName(phase)})`, "ok");
+  document.getElementById("taskName").value = "";
+}
+
+function pushTask(name, start, end, phase, worker, note = "") {
+  tasks.push({ name, start, end, phase, worker, note, id: Date.now() });
+  tasks.sort((a, b) => a.start - b.start);
+  save();
+  render();
+}
+
+/* ============================================================
+   DELETE
+   ============================================================ */
+function deleteTask(id) {
+  tasks = tasks.filter(t => t.id !== id);
+  save();
+  render();
+}
+
+/* ============================================================
+   SPEECH RECOGNITION
+   ============================================================ */
+let recognizing = false;
+let recognition = null;
+
+function toggleMic() {
+  if (recognizing) { recognition && recognition.stop(); return; }
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { setStatus("Selaimesi ei tue puheentunnistusta. Käytä Chrome-selainta.", "err"); return; }
+
+  recognition = new SR();
+  recognition.lang = "fi-FI";
+  recognition.interimResults = false;
+
+  recognition.onstart = () => {
+    recognizing = true;
+    document.getElementById("micBtn").classList.add("recording");
+    document.getElementById("micBtn").textContent = "🔴 Kuuntelee...";
+    setStatus("Kuuntelee... Sano esim: 'Kylpyhuone purku alkaa 7.4. päättyy 10.4.'", "info");
+  };
+
+  recognition.onend = () => {
+    recognizing = false;
+    document.getElementById("micBtn").classList.remove("recording");
+    document.getElementById("micBtn").textContent = "🎤 Puhu";
+  };
+
+  recognition.onerror = (e) => {
+    setStatus("Virhe: " + e.error, "err");
+    recognizing = false;
+    document.getElementById("micBtn").classList.remove("recording");
+    document.getElementById("micBtn").textContent = "🎤 Puhu";
+  };
+
+  recognition.onresult = (e) => {
+    const transcript = e.results[0][0].transcript.toLowerCase().trim();
+    setStatus("Tunnistettu: "" + transcript + """, "info");
+    handleSpeech(transcript);
+  };
+
+  recognition.start();
+}
+
+/* ============================================================
+   SPEECH PARSING
+   Tuetut muodot:
+   "[nimi] [vaihe] alkaa [pvm] päättyy [pvm]"
+   "[nimi] [vaihe] [pvm]-[pvm]"
+   "muistiinpano [teksti]"
+   ============================================================ */
+const PHASE_MAP = {
+  purku:            "purku",
+  purkaminen:       "purku",
+  "purku työ":      "purku",
+  kuivaus:          "kuivaus",
+  kuivaukseen:      "kuivaus",
+  kuivatus:         "kuivaus",
+  jälleenrakennus:  "rakennus",
+  jälleenrakentaminen: "rakennus",
+  rakennus:         "rakennus",
+  rakentaminen:     "rakennus",
+  muistiinpano:     "muistiinpano",
+  muistio:          "muistiinpano",
+  huomio:           "muistiinpano",
+};
+
+function detectPhase(text) {
+  for (const [key, val] of Object.entries(PHASE_MAP)) {
+    if (text.includes(key)) return val;
+  }
+  return null;
+}
+
+function parseSpeechDate(token, refYear) {
+  // "7.4.2026" / "7.4." / "7 huhtikuuta" / "huomenna" / "ensi viikolla"
+  token = token.trim();
+  if (token.includes("huomenna")) {
+    const d = new Date(); d.setDate(d.getDate() + 1); return d;
+  }
+  if (token.includes("ensi viikolla") || token.includes("ensi viikko")) {
+    const d = new Date(); d.setDate(d.getDate() + 7); return d;
+  }
+
+  const MONTHS = {
+    tammikuuta:1, tammikuu:1, helmikuuta:2, helmikuu:2,
+    maaliskuuta:3, maaliskuu:3, huhtikuuta:4, huhtikuu:4,
+    toukokuuta:5, toukokuu:5, kesäkuuta:6, kesäkuu:6,
+    heinäkuuta:7, heinäkuu:7, elokuuta:8, elokuu:8,
+    syyskuuta:9, syyskuu:9, lokakuuta:10, lokakuu:10,
+    marraskuuta:11, marraskuu:11, joulukuuta:12, joulukuu:12,
+  };
+
+  for (const [mn, mv] of Object.entries(MONTHS)) {
+    const m = token.match(new RegExp(`(\\d+)\\s*${mn}`));
+    if (m) return new Date(refYear, mv - 1, parseInt(m[1]));
+  }
+
+  // "7.4.2026" or "7.4." or "7.4"
+  const nums = token.match(/(\d{1,2})[.\-\/](\d{1,2})(?:[.\-\/](\d{2,4}))?/);
+  if (nums) {
+    const d = parseInt(nums[1]), mo = parseInt(nums[2]);
+    const y = nums[3] ? (nums[3].length === 2 ? 2000 + parseInt(nums[3]) : parseInt(nums[3])) : refYear;
+    return new Date(y, mo - 1, d);
+  }
+
+  return null;
+}
+
+function handleSpeech(text) {
+  const worker = getWorker();
+  const refYear = new Date().getFullYear();
+
+  // Special: plain note
+  if (text.startsWith("muistiinpano") || text.startsWith("muistio") || text.startsWith("huomio")) {
+    const noteText = text.replace(/^(muistiinpano|muistio|huomio)\s*/i, "").trim() || text;
+    const today = new Date(); today.setHours(0,0,0,0);
+    pushTask(noteText, today, today, "muistiinpano", worker, noteText);
+    setStatus("Muistiinpano lisätty: " + noteText, "ok");
+    speak("Muistiinpano lisätty");
+    return;
+  }
+
+  const phase = detectPhase(text);
+  if (!phase) {
+    setStatus("En tunnista työvaihetta. Sano purku, kuivaus tai jälleenrakennus.", "err");
+    speak("En ymmärtänyt työvaihetta");
+    return;
+  }
+
+  // Try "alkaa ... päättyy ..."
+  let startD = null, endD = null, taskName = "";
+
+  const patFull = /(.+?)\s+alkaa\s+(.+?)\s+päättyy\s+(.+)/i;
+  const mFull = text.match(patFull);
+  if (mFull) {
+    taskName = cleanTaskName(mFull[1]);
+    startD   = parseSpeechDate(mFull[2], refYear);
+    endD     = parseSpeechDate(mFull[3], refYear);
+  }
+
+  // Try "... [date] - [date]"
+  if (!startD || !endD) {
+    const patRange = /^(.+?)\s+(\d{1,2}[.\-]\d{1,2}[.\-]?\d{0,4})\s*[-–]\s*(\d{1,2}[.\-]\d{1,2}[.\-]?\d{0,4})/;
+    const mRange = text.match(patRange);
+    if (mRange) {
+      taskName = cleanTaskName(mRange[1]);
+      startD   = parseSpeechDate(mRange[2], refYear);
+      endD     = parseSpeechDate(mRange[3], refYear);
+    }
+  }
+
+  if (!taskName) taskName = phaseName(phase);
+
+  if (!startD || !endD || isNaN(startD) || isNaN(endD)) {
+    setStatus("En tunnistanut päivämääriä. Kokeile: 'Kylpyhuone purku alkaa 7.4. päättyy 10.4.'", "err");
+    speak("Päivämäärä puuttuu");
+    return;
+  }
+
+  if (endD < startD) endD = new Date(startD.getTime() + 86400000);
+
+  pushTask(taskName, startD, endD, phase, worker);
+  setStatus(`Lisätty: ${taskName} – ${phaseName(phase)} (${fmt(startD)} – ${fmt(endD)})`, "ok");
+  speak(`Lisäsin ${taskName}`);
+}
+
+function cleanTaskName(raw) {
+  // Strip phase keywords from name
+  const phaseWords = Object.keys(PHASE_MAP).join("|");
+  return raw.replace(new RegExp(`\\b(${phaseWords})\\b`, "gi"), "").replace(/\s+/g, " ").trim();
+}
+
+/* ============================================================
+   SPEECH SYNTHESIS
+   ============================================================ */
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "fi-FI";
+  window.speechSynthesis.speak(u);
+}
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+function phaseName(p) {
+  return { purku: "Purku", kuivaus: "Kuivaus", rakennus: "Jälleenrakennus", muistiinpano: "Muistiinpano" }[p] || p;
+}
+
+function fmt(d) {
+  if (!d || isNaN(d)) return "?";
+  return d.toLocaleDateString("fi-FI");
+}
+
+function addDays(d, n) {
+  const r = new Date(d); r.setDate(r.getDate() + n); return r;
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function render() {
+  renderGantt();
+  renderNotes();
+}
+
+function renderGantt() {
+  const container = document.getElementById("gantt");
+  if (!tasks.length) {
+    container.innerHTML = '<div class="empty"><span>📅</span>Ei tehtäviä. Lisää puhumalla tai lomakkeella.</div>';
+    return;
+  }
+
+  const minD = new Date(Math.min(...tasks.map(t => +new Date(t.start))));
+  const maxD = new Date(Math.max(...tasks.map(t => +new Date(t.end))));
+  minD.setHours(0,0,0,0);
+  maxD.setHours(0,0,0,0);
+
+  const totalDays = Math.max(1, Math.round((maxD - minD) / 86400000) + 1);
+
+  // Build day headers
+  const LABEL_STEP = totalDays <= 14 ? 1 : totalDays <= 31 ? 2 : totalDays <= 60 ? 7 : 14;
+  let headerHTML = '<div class="gantt-header">'
+    + '<div class="col-name"></div>'
+    + '<div class="col-worker"></div>'
+    + '<div class="col-timeline">';
+
+  for (let i = 0; i < totalDays; i++) {
+    const d = addDays(minD, i);
+    const lbl = (i % LABEL_STEP === 0) ? d.toLocaleDateString("fi-FI", { day:"numeric", month:"numeric" }) : "";
+    const pct = (1 / totalDays * 100).toFixed(3);
+    headerHTML += `<div class="day-label" style="width:${pct}%">${lbl}</div>`;
+  }
+  headerHTML += '</div></div>';
+
+  // Build rows
+  let rowsHTML = "";
+  tasks.forEach(t => {
+    const s = new Date(t.start); s.setHours(0,0,0,0);
+    const e = new Date(t.end);   e.setHours(0,0,0,0);
+    const off = Math.max(0, Math.round((s - minD) / 86400000));
+    const dur = Math.max(1, Math.round((e - s) / 86400000) + 1);
+    const leftPct  = (off / totalDays * 100).toFixed(3);
+    const widthPct = Math.min(100 - parseFloat(leftPct), dur / totalDays * 100).toFixed(3);
+
+    rowsHTML += `
+      <div class="gantt-row">
+        <div class="col-name">${t.name}</div>
+        <div class="col-worker">${t.worker || "—"}</div>
+        <div class="col-timeline">
+          <div class="bar ${t.phase}"
+               style="left:${leftPct}%;width:${widthPct}%"
+               title="${phaseName(t.phase)}: ${fmt(s)} – ${fmt(e)}">
+            ${widthPct > 8 ? phaseName(t.phase) : ""}
+          </div>
+        </div>
+      </div>`;
+  });
+
+  container.innerHTML = headerHTML + rowsHTML;
+}
+
+function renderNotes() {
+  const el = document.getElementById("notesList");
+  if (!tasks.length) {
+    el.innerHTML = '<div class="empty"><span>📝</span>Ei merkintöjä vielä.</div>';
+    return;
+  }
+
+  el.innerHTML = tasks.map(t => {
+    const badge = `badge-${t.phase === "rakennus" ? "rakennus" : t.phase === "kuivaus" ? "kuivaus" : t.phase === "purku" ? "purku" : "note"}`;
+    return `
+      <div class="note-item">
+        <span class="note-badge ${badge}">${phaseName(t.phase)}</span>
+        <div class="note-text">
+          <strong>${t.name}</strong>
+          <div class="note-meta">
+            👷 ${t.worker || "—"} &nbsp;|&nbsp; 📅 ${fmt(new Date(t.start))} – ${fmt(new Date(t.end))}
+            ${t.note ? `<br>💬 ${t.note}` : ""}
+          </div>
+        </div>
+        <button class="note-del" onclick="deleteTask(${t.id})" title="Poista">✕</button>
+      </div>`;
+  }).join("");
+}
+
+/* ============================================================
+   EXPORT PDF
+   ============================================================ */
+function exportPDF() {
+  if (!tasks.length) { setStatus("Ei tehtäviä vietäväksi.", "err"); return; }
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: "landscape" });
+
+  pdf.setFontSize(16);
+  pdf.text("Kosteusvahinko Gantt-kaavio", 14, 16);
+  pdf.setFontSize(9);
+  pdf.text("Tulostettu: " + new Date().toLocaleDateString("fi-FI"), 14, 22);
+
+  const COLORS = { purku:[231,76,60], kuivaus:[52,152,219], rakennus:[39,174,96], muistiinpano:[243,156,18] };
+  let y = 32;
+  pdf.setFontSize(10);
+  pdf.setFont("helvetica","bold");
+  pdf.text("Tehtävä", 14, y);
+  pdf.text("Työntekijä", 70, y);
+  pdf.text("Vaihe", 120, y);
+  pdf.text("Alkaa", 155, y);
+  pdf.text("Päättyy", 185, y);
+  y += 4;
+  pdf.setDrawColor(180);
+  pdf.line(14, y, 270, y);
+  y += 6;
+  pdf.setFont("helvetica","normal");
+
+  tasks.forEach(t => {
+    const c = COLORS[t.phase] || [127,127,127];
+    pdf.setFillColor(...c);
+    pdf.rect(12, y - 4, 3, 5, "F");
+    pdf.text(String(t.name).substring(0,28), 17, y);
+    pdf.text(String(t.worker || "—").substring(0,20), 70, y);
+    pdf.text(phaseName(t.phase), 120, y);
+    pdf.text(fmt(new Date(t.start)), 155, y);
+    pdf.text(fmt(new Date(t.end)),   185, y);
+    y += 8;
+    if (y > 190) { pdf.addPage(); y = 20; }
+  });
+
+  pdf.save("gantt-kosteusvahinko.pdf");
+  setStatus("PDF ladattu!", "ok");
+}
+
+/* ============================================================
+   EXPORT EXCEL
+   ============================================================ */
+function exportExcel() {
+  if (!tasks.length) { setStatus("Ei tehtäviä vietäväksi.", "err"); return; }
+  const data = tasks.map(t => ({
+    "Tehtävä":      t.name,
+    "Työntekijä":   t.worker || "—",
+    "Työvaihe":     phaseName(t.phase),
+    "Alkaa":        fmt(new Date(t.start)),
+    "Päättyy":      fmt(new Date(t.end)),
+    "Muistiinpano": t.note || "",
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  ws["!cols"] = [30,25,20,15,15,40].map(w => ({ wch: w }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Gantt");
+  XLSX.writeFile(wb, "gantt-kosteusvahinko.xlsx");
+  setStatus("Excel ladattu!", "ok");
+}
+
+/* ============================================================
+   CLEAR
+   ============================================================ */
+function clearAll() {
+  if (!confirm("Poistetaanko kaikki tehtävät?")) return;
+  tasks = [];
+  save();
+  render();
+  setStatus("Kaikki poistettu.", "info");
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+// Set default dates to today / +7 days
+const today = new Date();
+document.getElementById("startDate").value = today.toISOString().split("T")[0];
+const weekLater = new Date(today); weekLater.setDate(today.getDate() + 7);
+document.getElementById("endDate").value = weekLater.toISOString().split("T")[0];
+
+render();
+</script>
+</body>
+</html>
