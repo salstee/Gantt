@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Secondhand – Päivän myydyin</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --primary:       #6C3483;
+    --primary-light: #D2B4DE;
+    --accent:        #E67E22;
+    --accent-light:  #FAD7A0;
+    --green:         #1E8449;
+    --green-light:   #A9DFBF;
+    --bg:            #F4F1F8;
+    --card:          #FFFFFF;
+    --text:          #2C2C2C;
+    --muted:         #7D7D8A;
+    --border:        #E0DAF0;
+    --radius:        14px;
+    --shadow:        0 3px 12px rgba(108,52,131,.12);
+  }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, #6C3483 0%, #4A235A 100%);
+    color: #fff;
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 3px 14px rgba(0,0,0,.3);
+  }
+  .header-icon { font-size: 2rem; }
+  .header-text h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: .3px; }
+  .header-text p  { font-size: .82rem; opacity: .75; margin-top: 2px; }
+
+  /* ── Container ── */
+  .container { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+
+  /* ── Today hero card ── */
+  .hero {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 28px;
+    margin-bottom: 22px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 5px;
+    background: linear-gradient(90deg, var(--primary), var(--accent));
+  }
+  .hero-label {
+    font-size: .75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--primary);
+    margin-bottom: 6px;
+  }
+  .hero-date {
+    font-size: .85rem;
+    color: var(--muted);
+    margin-bottom: 18px;
+  }
+  .hero-empty {
+    text-align: center;
+    padding: 30px 0;
+    color: var(--muted);
+    font-size: 1rem;
+  }
+  .hero-empty .hero-empty-icon { font-size: 3rem; margin-bottom: 10px; }
+
+  .product-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+  }
+  .product-icon-wrap {
+    width: 80px;
+    height: 80px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, var(--primary-light), var(--accent-light));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.4rem;
+    flex-shrink: 0;
+  }
+  .product-info { flex: 1; }
+  .product-name {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+    line-height: 1.2;
+  }
+  .product-category {
+    display: inline-block;
+    background: var(--primary-light);
+    color: var(--primary);
+    font-size: .75rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-bottom: 10px;
+  }
+  .product-desc {
+    font-size: .9rem;
+    color: var(--muted);
+    margin-bottom: 12px;
+    line-height: 1.5;
+  }
+  .product-meta {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+  .price-badge {
+    background: linear-gradient(135deg, var(--primary), #9B59B6);
+    color: #fff;
+    font-size: 1.4rem;
+    font-weight: 800;
+    padding: 8px 20px;
+    border-radius: 30px;
+    box-shadow: 0 3px 10px rgba(108,52,131,.35);
+  }
+  .popularity-wrap { display: flex; flex-direction: column; gap: 4px; }
+  .popularity-label { font-size: .72rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+  .popularity-bar-bg {
+    width: 160px;
+    height: 10px;
+    background: var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .popularity-bar {
+    height: 100%;
+    border-radius: 10px;
+    background: linear-gradient(90deg, var(--accent), #F39C12);
+    transition: width .5s ease;
+  }
+  .popularity-pct { font-size: .78rem; color: var(--accent); font-weight: 700; }
+  .sales-badge {
+    background: var(--green-light);
+    color: var(--green);
+    font-size: .82rem;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 20px;
+  }
+
+  /* ── Form card ── */
+  .form-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 22px;
+    margin-bottom: 22px;
+  }
+  .form-card h2 {
+    font-size: .85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .7px;
+    color: var(--muted);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  @media(max-width:600px){ .form-grid{ grid-template-columns: 1fr; } }
+  .form-grid .full { grid-column: 1 / -1; }
+
+  .field label {
+    display: block;
+    font-size: .75rem;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+  }
+  .field input, .field select, .field textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    font-size: .95rem;
+    color: var(--text);
+    background: var(--bg);
+    transition: border-color .2s, box-shadow .2s;
+    font-family: inherit;
+  }
+  .field textarea { resize: vertical; min-height: 68px; }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(108,52,131,.12);
+  }
+
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn {
+    flex: 1;
+    min-width: 120px;
+    padding: 12px 18px;
+    border: none;
+    border-radius: 9px;
+    font-size: .95rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    transition: transform .1s, opacity .2s, box-shadow .2s;
+  }
+  .btn:hover { opacity: .9; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+  .btn:active { transform: scale(.97); }
+  .btn-save { background: linear-gradient(135deg, var(--primary), #9B59B6); color: #fff; }
+  .btn-clear { background: var(--muted); color: #fff; }
+  .btn-demo  { background: linear-gradient(135deg, var(--accent), #E74C3C); color: #fff; }
+
+  /* ── Status ── */
+  #status {
+    border-radius: 9px;
+    padding: 10px 14px;
+    font-size: .88rem;
+    margin-bottom: 16px;
+    display: none;
+    font-weight: 600;
+  }
+  #status.ok  { background: var(--green-light);  color: var(--green);  display: block; }
+  #status.err { background: #FADBD8; color: #922B21; display: block; }
+
+  /* ── History ── */
+  .history-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 22px;
+  }
+  .history-card h2 {
+    font-size: .85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .7px;
+    color: var(--muted);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .history-empty { color: var(--muted); font-size: .9rem; text-align: center; padding: 20px 0; }
+
+  .history-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background .15s;
+    border-radius: 8px;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .history-item:last-child { border-bottom: none; }
+  .history-item:hover { background: var(--bg); }
+  .hi-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--primary-light), var(--accent-light));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
+  .hi-info { flex: 1; }
+  .hi-name { font-size: .95rem; font-weight: 700; color: var(--text); }
+  .hi-sub  { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+  .hi-right { text-align: right; flex-shrink: 0; }
+  .hi-price { font-size: 1rem; font-weight: 800; color: var(--primary); }
+  .hi-date  { font-size: .72rem; color: var(--muted); margin-top: 2px; }
+  .hi-today { font-size: .68rem; background: var(--primary); color: #fff; padding: 2px 7px; border-radius: 10px; font-weight: 700; }
+
+  /* ── Category icons map ── */
+  /* defined via JS */
+
+  @media(max-width:480px){
+    .product-card { flex-direction: column; }
+    .product-icon-wrap { width: 64px; height: 64px; font-size: 1.8rem; }
+    .product-name { font-size: 1.2rem; }
+    .price-badge { font-size: 1.1rem; }
+    .popularity-bar-bg { width: 120px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-icon">♻️</div>
+  <div class="header-text">
+    <h1>Secondhand – Päivän myydyin</h1>
+    <p>Seuraa päivittäin myydyintä käytettyä tuotetta ja sen hintaa</p>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Today's hero -->
+  <div class="hero" id="heroCard">
+    <div class="hero-label">⭐ Tänään suosituin</div>
+    <div class="hero-date" id="heroDate"></div>
+    <div id="heroContent">
+      <div class="hero-empty">
+        <div class="hero-empty-icon">🏷️</div>
+        <p>Ei tuotetta vielä – lisää tänään myydyin tuote alta!</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div id="status"></div>
+
+  <!-- Form -->
+  <div class="form-card">
+    <h2>✏️ Lisää / päivitä päivän tuote</h2>
+    <div class="form-grid">
+      <div class="field">
+        <label>Päivämäärä</label>
+        <input type="date" id="fDate">
+      </div>
+      <div class="field">
+        <label>Kategoria</label>
+        <select id="fCategory">
+          <option value="Vaatteet">👕 Vaatteet</option>
+          <option value="Elektroniikka">📱 Elektroniikka</option>
+          <option value="Huonekalut">🪑 Huonekalut</option>
+          <option value="Kirjat">📚 Kirjat</option>
+          <option value="Lelut">🧸 Lelut</option>
+          <option value="Urheilu">⛷️ Urheilu &amp; ulkoilu</option>
+          <option value="Keittiö">🍳 Keittiö &amp; talous</option>
+          <option value="Työkalut">🔧 Työkalut</option>
+          <option value="Asusteet">👜 Asusteet &amp; korut</option>
+          <option value="Muu">📦 Muu</option>
+        </select>
+      </div>
+      <div class="field full">
+        <label>Tuotteen nimi</label>
+        <input type="text" id="fName" placeholder="esim. Vintage-nahkatakki, Koko M">
+      </div>
+      <div class="field">
+        <label>Hinta (€)</label>
+        <input type="number" id="fPrice" min="0" step="0.01" placeholder="esim. 24.50">
+      </div>
+      <div class="field">
+        <label>Myyty (kpl)</label>
+        <input type="number" id="fSales" min="1" placeholder="esim. 3">
+      </div>
+      <div class="field full">
+        <label>Kuvaus (valinnainen)</label>
+        <textarea id="fDesc" placeholder="Lyhyt kuvaus tuotteesta, kunto, brändi jne."></textarea>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-save" onclick="saveEntry()">💾 Tallenna</button>
+      <button class="btn btn-demo" onclick="loadDemoData()">🎲 Lataa esimerkkidata</button>
+      <button class="btn btn-clear" onclick="clearForm()">✖ Tyhjennä</button>
+    </div>
+  </div>
+
+  <!-- History -->
+  <div class="history-card">
+    <h2>📅 Historia – aiemmat päivät</h2>
+    <div id="historyList"><div class="history-empty">Ei historiaa vielä.</div></div>
+  </div>
+
+</div>
+
+<script>
+// ── Category → emoji map ──────────────────────────────────────────────
+const CAT_ICONS = {
+  Vaatteet:     '👕',
+  Elektroniikka:'📱',
+  Huonekalut:   '🪑',
+  Kirjat:       '📚',
+  Lelut:        '🧸',
+  Urheilu:      '⛷️',
+  Keittiö:      '🍳',
+  Työkalut:     '🔧',
+  Asusteet:     '👜',
+  Muu:          '📦',
+};
+
+const STORAGE_KEY = 'sh_daily_tracker_v1';
+
+// ── Helpers ───────────────────────────────────────────────────────────
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function formatDate(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  return d.toLocaleDateString('fi-FI', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+}
+
+function loadData() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
+  catch { return {}; }
+}
+
+function saveData(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+// ── Render hero ───────────────────────────────────────────────────────
+function renderHero() {
+  const data = loadData();
+  const today = todayISO();
+  const entry = data[today];
+
+  document.getElementById('heroDate').textContent = formatDate(today);
+
+  const el = document.getElementById('heroContent');
+  if (!entry) {
+    el.innerHTML = `
+      <div class="hero-empty">
+        <div class="hero-empty-icon">🏷️</div>
+        <p>Ei tuotetta vielä – lisää tänään myydyin tuote alta!</p>
+      </div>`;
+    return;
+  }
+
+  const icon = CAT_ICONS[entry.category] || '📦';
+  const pct  = Math.min(100, Math.round((entry.sales || 1) * 14));
+
+  el.innerHTML = `
+    <div class="product-card">
+      <div class="product-icon-wrap">${icon}</div>
+      <div class="product-info">
+        <div class="product-name">${esc(entry.name)}</div>
+        <span class="product-category">${esc(entry.category)}</span>
+        ${entry.desc ? `<p class="product-desc">${esc(entry.desc)}</p>` : ''}
+        <div class="product-meta">
+          <div class="price-badge">${formatPrice(entry.price)}</div>
+          <div class="popularity-wrap">
+            <span class="popularity-label">Suosio tänään</span>
+            <div class="popularity-bar-bg">
+              <div class="popularity-bar" style="width:${pct}%"></div>
+            </div>
+            <span class="popularity-pct">${pct} %</span>
+          </div>
+          ${entry.sales ? `<div class="sales-badge">🛍️ Myyty ${entry.sales} kpl</div>` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── Render history ────────────────────────────────────────────────────
+function renderHistory() {
+  const data  = loadData();
+  const today = todayISO();
+  const keys  = Object.keys(data).sort((a, b) => b.localeCompare(a)); // newest first
+
+  const el = document.getElementById('historyList');
+  if (keys.length === 0) {
+    el.innerHTML = '<div class="history-empty">Ei historiaa vielä.</div>';
+    return;
+  }
+
+  el.innerHTML = keys.map(iso => {
+    const e    = data[iso];
+    const icon = CAT_ICONS[e.category] || '📦';
+    const isToday = iso === today;
+    return `
+      <div class="history-item" onclick="fillForm('${iso}')">
+        <div class="hi-icon">${icon}</div>
+        <div class="hi-info">
+          <div class="hi-name">${esc(e.name)}</div>
+          <div class="hi-sub">${esc(e.category)}${e.sales ? ' · ' + e.sales + ' kpl' : ''}</div>
+        </div>
+        <div class="hi-right">
+          <div class="hi-price">${formatPrice(e.price)}</div>
+          <div class="hi-date">
+            ${isToday ? '<span class="hi-today">Tänään</span>' : formatDate(iso)}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Save entry ────────────────────────────────────────────────────────
+function saveEntry() {
+  const date  = document.getElementById('fDate').value;
+  const name  = document.getElementById('fName').value.trim();
+  const price = parseFloat(document.getElementById('fPrice').value);
+  const cat   = document.getElementById('fCategory').value;
+  const sales = parseInt(document.getElementById('fSales').value) || null;
+  const desc  = document.getElementById('fDesc').value.trim();
+
+  if (!date || !name || isNaN(price) || price < 0) {
+    showStatus('Täytä vähintään päivämäärä, tuotteen nimi ja hinta.', 'err');
+    return;
+  }
+
+  const data = loadData();
+  data[date] = { name, price, category: cat, sales, desc };
+  saveData(data);
+
+  showStatus(`✅ Tallennettu: ${name} – ${formatPrice(price)}`, 'ok');
+  renderHero();
+  renderHistory();
+}
+
+// ── Fill form from history ────────────────────────────────────────────
+function fillForm(iso) {
+  const data = loadData();
+  const e = data[iso];
+  if (!e) return;
+  document.getElementById('fDate').value     = iso;
+  document.getElementById('fName').value     = e.name;
+  document.getElementById('fPrice').value    = e.price;
+  document.getElementById('fCategory').value = e.category;
+  document.getElementById('fSales').value    = e.sales || '';
+  document.getElementById('fDesc').value     = e.desc || '';
+  window.scrollTo({ top: document.querySelector('.form-card').offsetTop - 20, behavior: 'smooth' });
+}
+
+// ── Clear form ────────────────────────────────────────────────────────
+function clearForm() {
+  document.getElementById('fDate').value     = todayISO();
+  document.getElementById('fName').value     = '';
+  document.getElementById('fPrice').value    = '';
+  document.getElementById('fSales').value    = '';
+  document.getElementById('fDesc').value     = '';
+  document.getElementById('fCategory').value = 'Vaatteet';
+  hideStatus();
+}
+
+// ── Demo data ─────────────────────────────────────────────────────────
+function loadDemoData() {
+  const today = new Date();
+  const demos = [
+    { offset: 0,  name: 'Vintage-nahkatakki, koko M',           category: 'Vaatteet',     price: 34.00, sales: 1, desc: 'Ruskea nahkatakki 80-luvulta, erinomainen kunto.' },
+    { offset: 1,  name: 'iPhone 11 Pro – 64 GB',                category: 'Elektroniikka',price: 195.00,sales: 1, desc: 'Toimiva, pieni naarmu takakanteen.' },
+    { offset: 2,  name: 'IKEA Poäng -nojatuoli',                 category: 'Huonekalut',   price: 29.00, sales: 2, desc: 'Koivupuu, harmaa kangas, kuten uusi.' },
+    { offset: 3,  name: 'Harry Potter -sarja (1–7)',             category: 'Kirjat',       price: 18.00, sales: 3, desc: 'Kaikki seitsemän osaa samassa paketissa.' },
+    { offset: 4,  name: 'Lego Technic 42096',                   category: 'Lelut',        price: 45.00, sales: 1, desc: 'Täydellinen, kaikki palaset mukana.' },
+    { offset: 5,  name: 'Salomon XC-sukset 185 cm + siteet',    category: 'Urheilu',      price: 55.00, sales: 1, desc: 'Hyvässä kunnossa, käytetty kaksi kautta.' },
+    { offset: 6,  name: 'KitchenAid Artisan -yleiskone',        category: 'Keittiö',      price: 220.00,sales: 1, desc: 'Punainen, 4,8 L, toimii moitteettomasti.' },
+    { offset: 7,  name: 'Bosch akkuporakone 18 V + 2 akkua',    category: 'Työkalut',     price: 79.00, sales: 2, desc: 'Kuitti mukana, akut täysinä.' },
+    { offset: 8,  name: 'Michael Kors -laukku, musta',          category: 'Asusteet',     price: 65.00, sales: 1, desc: 'Aito, vähän käytetty, ei naarmuja.' },
+    { offset: 9,  name: 'Lasten lumipuku 110 cm, Reima',        category: 'Vaatteet',     price: 22.00, sales: 4, desc: 'Keltainen, yhdessä kaudessa käytetty.' },
+    { offset: 10, name: 'Nintendo Switch + 3 peliä',            category: 'Elektroniikka',price: 170.00,sales: 1, desc: 'Alkuperäiset tarvikkeet, Animal Crossing mukana.' },
+    { offset: 11, name: 'Ruokapöytä 6 henkilölle + tuolit',     category: 'Huonekalut',   price: 120.00,sales: 1, desc: 'Tammimassiivia, 140×80 cm.' },
+    { offset: 12, name: 'Muumikirja-kokoelma, 20 kirjaa',       category: 'Kirjat',       price: 30.00, sales: 2, desc: 'Klassikkoja lapsille, hyvä kunto.' },
+    { offset: 13, name: 'Patagonia fleece-takki, koko L',       category: 'Vaatteet',     price: 48.00, sales: 2, desc: 'Tummansininen, käytetty, ei kulumia.' },
+  ];
+
+  const data = loadData();
+  demos.forEach(d => {
+    const dt = new Date(today);
+    dt.setDate(dt.getDate() - d.offset);
+    const iso = dt.toISOString().slice(0, 10);
+    data[iso] = { name: d.name, category: d.category, price: d.price, sales: d.sales, desc: d.desc };
+  });
+  saveData(data);
+  showStatus('🎲 Esimerkkidata ladattu!', 'ok');
+  renderHero();
+  renderHistory();
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatPrice(v) {
+  return (parseFloat(v) || 0).toLocaleString('fi-FI', { style:'currency', currency:'EUR' });
+}
+
+function showStatus(msg, type) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = type;
+  clearTimeout(showStatus._t);
+  showStatus._t = setTimeout(hideStatus, 4000);
+}
+function hideStatus() {
+  const el = document.getElementById('status');
+  el.className = '';
+  el.textContent = '';
+}
+
+// ── Init ──────────────────────────────────────────────────────────────
+document.getElementById('fDate').value = todayISO();
+renderHero();
+renderHistory();
+</script>
+</body>
+</html>
