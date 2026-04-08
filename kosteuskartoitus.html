@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kosteuskartoitusraportti</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #F4F6F9;
+  --card: #FFFFFF;
+  --text: #2C3E50;
+  --muted: #7F8C8D;
+  --border: #DDE1E7;
+  --radius: 10px;
+  --shadow: 0 2px 8px rgba(0,0,0,.10);
+  --blue: #3498DB;
+  --green: #27AE60;
+  --red: #E74C3C;
+  --orange: #F39C12;
+}
+
+body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+header {
+  background: linear-gradient(135deg, #1A5276 0%, #2980B9 100%);
+  color: #fff; padding: 16px 20px; display: flex; align-items: center; gap: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.3);
+}
+header h1 { font-size: 1.3rem; font-weight: 700; }
+header .nav-link {
+  margin-left: auto; color: #fff; text-decoration: none;
+  background: rgba(255,255,255,0.2); padding: 6px 14px; border-radius: 6px;
+  font-size: 0.85rem;
+}
+header .nav-link:hover { background: rgba(255,255,255,0.3); }
+
+.container { max-width: 1100px; margin: 0 auto; padding: 20px 16px; }
+
+.section {
+  background: var(--card); border-radius: var(--radius); padding: 20px;
+  box-shadow: var(--shadow); margin-bottom: 20px;
+}
+.section h2 { font-size: 1rem; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.section h2 .ico { font-size: 1.2rem; }
+
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-grid.triple { grid-template-columns: 1fr 1fr 1fr; }
+@media(max-width:600px){ .form-grid, .form-grid.triple { grid-template-columns: 1fr; } }
+
+label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+input[type=text], input[type=date], input[type=number], select, textarea {
+  width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 0.9rem; background: #FAFBFC; color: var(--text);
+  transition: border-color 0.2s;
+}
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--blue); }
+textarea { resize: vertical; min-height: 80px; }
+
+/* ── Pohjapiirros canvas ── */
+.canvas-wrapper {
+  position: relative; border: 2px dashed var(--border); border-radius: var(--radius);
+  background: #fff; overflow: hidden; cursor: crosshair;
+}
+.canvas-wrapper canvas { display: block; }
+
+.canvas-toolbar {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; align-items: center;
+}
+.tool-btn {
+  padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px;
+  background: #fff; cursor: pointer; font-size: 0.82rem; font-weight: 600;
+  transition: all 0.15s; color: var(--text);
+}
+.tool-btn:hover { background: #EAF4FC; border-color: var(--blue); }
+.tool-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+.tool-btn.danger { border-color: var(--red); color: var(--red); }
+.tool-btn.danger:hover { background: var(--red); color: #fff; }
+
+.color-picker-group { display: flex; align-items: center; gap: 6px; }
+.color-picker-group label { margin: 0; white-space: nowrap; }
+input[type=color] { width: 32px; height: 32px; border: none; border-radius: 4px; cursor: pointer; padding: 0; }
+input[type=range] { width: 80px; }
+
+/* ── Mittauspisteet lista ── */
+.measurement-list { display: flex; flex-direction: column; gap: 8px; }
+.measurement-item {
+  display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px;
+  align-items: center; background: #F8F9FA; border-radius: 6px; padding: 10px;
+  border-left: 4px solid var(--blue);
+}
+.measurement-item.wet { border-left-color: var(--red); background: #FFF5F5; }
+.measurement-item.damp { border-left-color: var(--orange); background: #FFFBF0; }
+.measurement-item.dry { border-left-color: var(--green); background: #F0FFF4; }
+@media(max-width:600px){ .measurement-item { grid-template-columns: 1fr 1fr; } }
+
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 700;
+}
+.badge.wet { background: #FADBD8; color: var(--red); }
+.badge.damp { background: #FDEBD0; color: var(--orange); }
+.badge.dry { background: #D5F5E3; color: var(--green); }
+
+.del-btn {
+  background: none; border: none; cursor: pointer; color: var(--muted);
+  font-size: 1rem; padding: 4px; border-radius: 4px;
+}
+.del-btn:hover { color: var(--red); background: #FADBD8; }
+
+/* ── Valokuvat ── */
+.photo-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px;
+}
+.photo-card {
+  border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+  background: #fff; box-shadow: var(--shadow);
+}
+.photo-card img { width: 100%; height: 120px; object-fit: cover; display: block; }
+.photo-card .photo-meta { padding: 8px; }
+.photo-card .photo-meta input {
+  font-size: 0.78rem; padding: 4px 6px; margin-top: 4px;
+}
+.photo-card .photo-del {
+  display: block; width: 100%; padding: 4px; background: #FEF0F0;
+  color: var(--red); border: none; border-top: 1px solid #FADBD8;
+  cursor: pointer; font-size: 0.78rem; font-weight: 600;
+}
+.photo-card .photo-del:hover { background: var(--red); color: #fff; }
+
+.upload-area {
+  border: 2px dashed var(--border); border-radius: 8px; padding: 30px;
+  text-align: center; cursor: pointer; color: var(--muted); transition: all 0.2s;
+}
+.upload-area:hover, .upload-area.dragover { border-color: var(--blue); background: #EAF4FC; color: var(--blue); }
+.upload-area input { display: none; }
+
+/* ── Johtopäätös ── */
+.conclusion-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media(max-width:600px){ .conclusion-grid { grid-template-columns: 1fr; } }
+
+/* ── Allekirjoitus ── */
+.sig-canvas-wrap { border: 1px solid var(--border); border-radius: 6px; background: #FAFBFC; }
+.sig-canvas-wrap canvas { display: block; cursor: crosshair; }
+
+/* ── Toimintopainikkeet ── */
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+.btn {
+  padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer;
+  font-size: 0.9rem; font-weight: 700; transition: all 0.15s;
+}
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-primary:hover { background: #2471A3; }
+.btn-success { background: var(--green); color: #fff; }
+.btn-success:hover { background: #1E8449; }
+.btn-warning { background: var(--orange); color: #fff; }
+.btn-warning:hover { background: #D68910; }
+
+/* ── PDF-tulostustyyli ── */
+@media print {
+  header .nav-link, .canvas-toolbar, .actions, .upload-area,
+  .del-btn, .photo-del, .tool-btn, .btn,
+  .sig-clear-btn, .add-measurement-row { display: none !important; }
+  body { background: #fff; }
+  .section { box-shadow: none; border: 1px solid #ccc; page-break-inside: avoid; }
+  .container { padding: 0; max-width: 100%; }
+  .canvas-wrapper { border: 1px solid #ccc; }
+  input, select, textarea { border: none !important; background: transparent !important; padding: 0 !important; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <span>💧</span>
+  <h1>Kosteuskartoitusraportti</h1>
+  <a class="nav-link" href="index.html">← Takaisin</a>
+</header>
+
+<div class="container">
+
+  <!-- Toimintopainikkeet -->
+  <div class="actions">
+    <button class="btn btn-primary" onclick="saveDraft()">💾 Tallenna luonnos</button>
+    <button class="btn btn-success" onclick="exportPDF()">📄 Vie PDF</button>
+    <button class="btn btn-warning" onclick="loadDraft()">📂 Lataa luonnos</button>
+  </div>
+
+  <!-- 1. Kohteen tiedot -->
+  <div class="section">
+    <h2><span class="ico">🏠</span> Kohteen tiedot</h2>
+    <div class="form-grid">
+      <div><label>Kohteen osoite</label><input type="text" id="address" placeholder="Esim. Mäkitie 3, 00100 Helsinki"></div>
+      <div><label>Tilaaja / Omistaja</label><input type="text" id="owner" placeholder="Nimi tai yritys"></div>
+      <div><label>Kartoittaja</label><input type="text" id="surveyor" placeholder="Kartoittajan nimi"></div>
+      <div><label>Yritys / Toimisto</label><input type="text" id="company" placeholder="Yrityksen nimi"></div>
+      <div><label>Kartoituspäivämäärä</label><input type="date" id="surveyDate"></div>
+      <div><label>Raportin numero</label><input type="text" id="reportNumber" placeholder="Esim. KK-2026-001"></div>
+    </div>
+    <div style="margin-top:12px">
+      <label>Kohteen kuvaus</label>
+      <textarea id="buildingDesc" placeholder="Rakennustyyppi, rakennusvuosi, vahinkohistoria..."></textarea>
+    </div>
+  </div>
+
+  <!-- 2. Pohjapiirros + mittauspisteet -->
+  <div class="section">
+    <h2><span class="ico">📐</span> Pohjapiirros ja mittauspisteet</h2>
+
+    <div class="canvas-toolbar">
+      <button class="tool-btn active" id="btn-wall" onclick="setTool('wall')">🧱 Seinä</button>
+      <button class="tool-btn" id="btn-door" onclick="setTool('door')">🚪 Ovi</button>
+      <button class="tool-btn" id="btn-window" onclick="setTool('window')">🪟 Ikkuna</button>
+      <button class="tool-btn" id="btn-measure" onclick="setTool('measure')">📍 Mittauspiste</button>
+      <button class="tool-btn" id="btn-text" onclick="setTool('text')">🔤 Teksti</button>
+      <button class="tool-btn" id="btn-eraser" onclick="setTool('eraser')">🗑 Pyyhi</button>
+      <span style="width:1px;background:var(--border);height:28px;display:inline-block;margin:0 4px"></span>
+      <div class="color-picker-group">
+        <label>Väri</label>
+        <input type="color" id="colorPicker" value="#2C3E50">
+      </div>
+      <div class="color-picker-group">
+        <label>Koko</label>
+        <input type="range" id="lineWidth" min="1" max="20" value="3">
+      </div>
+      <button class="tool-btn" onclick="undoCanvas()">↩ Kumoa</button>
+      <button class="tool-btn danger" onclick="clearCanvas()">✕ Tyhjennä</button>
+      <button class="tool-btn" onclick="loadFloorplan()">📁 Lataa kuva</button>
+      <input type="file" id="floorplanFile" accept="image/*" style="display:none" onchange="handleFloorplanUpload(event)">
+    </div>
+
+    <div class="canvas-wrapper" id="canvasWrapper">
+      <canvas id="floorCanvas" width="1000" height="600"></canvas>
+    </div>
+
+    <div style="margin-top:8px;font-size:0.8rem;color:var(--muted)">
+      Vihje: Piirrä pohjapiirros tai lataa kuva taustaksi. Lisää mittauspisteet klikkaamalla 📍-työkalulla.
+    </div>
+  </div>
+
+  <!-- 3. Mittaustulokset taulukko -->
+  <div class="section">
+    <h2><span class="ico">📊</span> Mittaustulokset</h2>
+
+    <div class="measurement-list" id="measurementList"></div>
+
+    <div class="add-measurement-row" style="margin-top:12px">
+      <div class="form-grid triple" style="margin-bottom:8px">
+        <div>
+          <label>Mittauspaikka</label>
+          <input type="text" id="newLocation" placeholder="Esim. Kylpyhuone lattia">
+        </div>
+        <div>
+          <label>Kosteus (%/RH)</label>
+          <input type="number" id="newValue" placeholder="Arvo" min="0" max="100" step="0.1">
+        </div>
+        <div>
+          <label>Materiaali</label>
+          <select id="newMaterial">
+            <option>Betoni</option>
+            <option>Puu</option>
+            <option>Tiili</option>
+            <option>Tasoite / rappaus</option>
+            <option>Kaakeli</option>
+            <option>Muu</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid" style="margin-bottom:8px">
+        <div>
+          <label>Mittaussyvyys</label>
+          <input type="text" id="newDepth" placeholder="Esim. pintamittaus, 20mm">
+        </div>
+        <div>
+          <label>Huomiot</label>
+          <input type="text" id="newNote" placeholder="Lisätiedot...">
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="addMeasurement()" style="padding:8px 16px;font-size:0.85rem">+ Lisää mittaus</button>
+    </div>
+  </div>
+
+  <!-- 4. Valokuvat -->
+  <div class="section">
+    <h2><span class="ico">📷</span> Valokuvat</h2>
+
+    <div class="photo-grid" id="photoGrid"></div>
+
+    <div class="upload-area" id="uploadArea" onclick="document.getElementById('photoInput').click()"
+         ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropPhoto(event)">
+      <input type="file" id="photoInput" accept="image/*" multiple onchange="handlePhotos(event)">
+      <div style="font-size:2rem;margin-bottom:8px">📷</div>
+      <div style="font-weight:700">Klikkaa tai pudota kuvia tähän</div>
+      <div style="font-size:0.8rem;margin-top:4px">Tukee: JPG, PNG, WEBP</div>
+    </div>
+  </div>
+
+  <!-- 5. Johtopäätökset ja toimenpidesuositukset -->
+  <div class="section">
+    <h2><span class="ico">📝</span> Johtopäätökset ja toimenpidesuositukset</h2>
+    <div class="conclusion-grid">
+      <div>
+        <label>Vaurioarvio</label>
+        <select id="damageLevel">
+          <option value="">-- Valitse --</option>
+          <option>Ei kosteusvauriota</option>
+          <option>Lievä kosteusvaurio</option>
+          <option>Kohtalainen kosteusvaurio</option>
+          <option>Vakava kosteusvaurio</option>
+          <option>Kriittinen – välitön toiminta tarpeen</option>
+        </select>
+      </div>
+      <div>
+        <label>Kiireellisyysluokka</label>
+        <select id="urgency">
+          <option value="">-- Valitse --</option>
+          <option>1 – Ei kiireellinen</option>
+          <option>2 – Seuranta suositellaan</option>
+          <option>3 – Toimenpiteet 3 kk sisällä</option>
+          <option>4 – Toimenpiteet 1 kk sisällä</option>
+          <option>5 – Välitön toiminta</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <label>Johtopäätökset</label>
+      <textarea id="conclusions" placeholder="Kartoituksen löydöt ja analyysit..." style="min-height:100px"></textarea>
+    </div>
+    <div style="margin-top:12px">
+      <label>Toimenpidesuositukset</label>
+      <textarea id="recommendations" placeholder="Suositellut korjaustoimenpiteet..." style="min-height:100px"></textarea>
+    </div>
+    <div style="margin-top:12px">
+      <label>Lisätutkimustarve</label>
+      <textarea id="furtherStudy" placeholder="Tarvittavat lisätutkimukset tai -mittaukset..."></textarea>
+    </div>
+  </div>
+
+  <!-- 6. Allekirjoitus -->
+  <div class="section">
+    <h2><span class="ico">✍️</span> Allekirjoitus</h2>
+    <div class="form-grid" style="margin-bottom:12px">
+      <div><label>Allekirjoittajan nimi</label><input type="text" id="signerName" placeholder="Koko nimi"></div>
+      <div><label>Pätevyys / Sertifikaatti</label><input type="text" id="signerCert" placeholder="Esim. RKT, kosteuskartoittaja"></div>
+    </div>
+    <label style="margin-bottom:6px">Allekirjoitus</label>
+    <div class="sig-canvas-wrap">
+      <canvas id="sigCanvas" width="600" height="150"></canvas>
+    </div>
+    <button class="sig-clear-btn tool-btn danger" style="margin-top:8px" onclick="clearSig()">✕ Tyhjennä allekirjoitus</button>
+  </div>
+
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  Pohjapiirros canvas
+// ─────────────────────────────────────────────
+const canvas = document.getElementById('floorCanvas');
+const ctx = canvas.getContext('2d');
+let tool = 'wall';
+let drawing = false;
+let startX = 0, startY = 0;
+let history = [];
+let bgImage = null;
+let textLabels = [];
+
+function resizeCanvas() {
+  const wrapper = document.getElementById('canvasWrapper');
+  const w = wrapper.clientWidth;
+  const ratio = 600 / 1000;
+  canvas.style.width = w + 'px';
+  canvas.style.height = (w * ratio) + 'px';
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function saveHistory() {
+  history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+  if (history.length > 50) history.shift();
+}
+
+function undoCanvas() {
+  if (history.length > 0) {
+    ctx.putImageData(history.pop(), 0, 0);
+  }
+}
+
+function clearCanvas() {
+  if (!confirm('Tyhjennä koko pohjapiirros?')) return;
+  history = [];
+  bgImage = null;
+  textLabels = [];
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+function setTool(t) {
+  tool = t;
+  document.querySelectorAll('.tool-btn[id^="btn-"]').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('btn-' + t);
+  if (btn) btn.classList.add('active');
+  canvas.style.cursor = t === 'eraser' ? 'cell' : t === 'text' ? 'text' : 'crosshair';
+}
+
+function getPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const src = e.touches ? e.touches[0] : e;
+  return {
+    x: (src.clientX - rect.left) * scaleX,
+    y: (src.clientY - rect.top) * scaleY
+  };
+}
+
+canvas.addEventListener('mousedown', startDraw);
+canvas.addEventListener('mousemove', onMove);
+canvas.addEventListener('mouseup', endDraw);
+canvas.addEventListener('touchstart', e => { e.preventDefault(); startDraw(e); }, { passive: false });
+canvas.addEventListener('touchmove', e => { e.preventDefault(); onMove(e); }, { passive: false });
+canvas.addEventListener('touchend', e => { e.preventDefault(); endDraw(e); }, { passive: false });
+
+let snapshot = null;
+
+function startDraw(e) {
+  const pos = getPos(e);
+  startX = pos.x; startY = pos.y;
+
+  if (tool === 'text') {
+    const label = prompt('Syötä teksti:');
+    if (label) {
+      saveHistory();
+      ctx.font = '16px Segoe UI';
+      ctx.fillStyle = document.getElementById('colorPicker').value;
+      ctx.fillText(label, startX, startY);
+    }
+    return;
+  }
+
+  if (tool === 'measure') {
+    // Add measurement pin visually
+    saveHistory();
+    const num = document.querySelectorAll('.measurement-item').length + 1;
+    drawMeasurePin(startX, startY, num);
+    // Prefill location field
+    document.getElementById('newLocation').value = 'Mittauspiste ' + num;
+    document.getElementById('newValue').focus();
+    return;
+  }
+
+  drawing = true;
+  if (['wall', 'door', 'window'].includes(tool)) {
+    snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  }
+}
+
+function drawMeasurePin(x, y, num) {
+  ctx.beginPath();
+  ctx.arc(x, y, 10, 0, Math.PI * 2);
+  ctx.fillStyle = '#E74C3C';
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 10px Segoe UI';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(num, x, y);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+}
+
+function onMove(e) {
+  if (!drawing) return;
+  const pos = getPos(e);
+  const color = document.getElementById('colorPicker').value;
+  const lw = parseInt(document.getElementById('lineWidth').value);
+
+  if (tool === 'eraser') {
+    ctx.clearRect(pos.x - 10, pos.y - 10, 20, 20);
+    return;
+  }
+
+  if (['wall', 'door', 'window'].includes(tool) && snapshot) {
+    ctx.putImageData(snapshot, 0, 0);
+  }
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lw;
+  ctx.lineCap = 'round';
+
+  if (tool === 'wall') {
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+  } else if (tool === 'door') {
+    // Arc for door
+    const dx = pos.x - startX, dy = pos.y - startY;
+    const r = Math.sqrt(dx*dx + dy*dy);
+    const angle = Math.atan2(dy, dx);
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(startX, startY, r, angle - Math.PI/2, angle);
+    ctx.stroke();
+  } else if (tool === 'window') {
+    const dx = pos.x - startX, dy = pos.y - startY;
+    const nx = -dy / Math.sqrt(dx*dx+dy*dy) * lw * 3;
+    const ny = dx / Math.sqrt(dx*dx+dy*dy) * lw * 3;
+    ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(pos.x, pos.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(startX+nx, startY+ny); ctx.lineTo(pos.x+nx, pos.y+ny); ctx.stroke();
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(startX+nx, startY+ny); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pos.x, pos.y); ctx.lineTo(pos.x+nx, pos.y+ny); ctx.stroke();
+  }
+}
+
+function endDraw(e) {
+  if (!drawing) return;
+  drawing = false;
+  saveHistory();
+  snapshot = null;
+}
+
+function loadFloorplan() {
+  document.getElementById('floorplanFile').click();
+}
+
+function handleFloorplanUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      saveHistory();
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      bgImage = ev.target.result;
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─────────────────────────────────────────────
+//  Mittaustulokset
+// ─────────────────────────────────────────────
+let measurements = [];
+
+function classifyMoisture(val, mat) {
+  const v = parseFloat(val);
+  if (isNaN(v)) return 'dry';
+  // Rough thresholds (material-dependent)
+  const limits = { 'Puu': [18, 25], 'Betoni': [80, 90], 'default': [75, 85] };
+  const [warn, crit] = limits[mat] || limits.default;
+  if (v >= crit) return 'wet';
+  if (v >= warn) return 'damp';
+  return 'dry';
+}
+
+function classLabel(cls) {
+  return cls === 'wet' ? 'Kostea' : cls === 'damp' ? 'Kosteuden raja' : 'Kuiva';
+}
+
+function addMeasurement() {
+  const loc = document.getElementById('newLocation').value.trim();
+  const val = document.getElementById('newValue').value;
+  const mat = document.getElementById('newMaterial').value;
+  const dep = document.getElementById('newDepth').value.trim();
+  const note = document.getElementById('newNote').value.trim();
+
+  if (!loc || val === '') { alert('Täytä vähintään mittauspaikka ja kosteus-arvo.'); return; }
+
+  const cls = classifyMoisture(val, mat);
+  measurements.push({ loc, val, mat, dep, note, cls });
+  renderMeasurements();
+
+  document.getElementById('newLocation').value = '';
+  document.getElementById('newValue').value = '';
+  document.getElementById('newDepth').value = '';
+  document.getElementById('newNote').value = '';
+}
+
+function deleteMeasurement(i) {
+  measurements.splice(i, 1);
+  renderMeasurements();
+}
+
+function renderMeasurements() {
+  const list = document.getElementById('measurementList');
+  if (measurements.length === 0) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;padding:8px">Ei vielä mittauksia.</div>';
+    return;
+  }
+  list.innerHTML = measurements.map((m, i) => `
+    <div class="measurement-item ${m.cls}">
+      <div>
+        <div style="font-weight:700;font-size:0.88rem">${i+1}. ${m.loc}</div>
+        <div style="font-size:0.78rem;color:var(--muted)">${m.mat}${m.dep ? ' · ' + m.dep : ''}</div>
+      </div>
+      <div style="font-size:1.2rem;font-weight:800;color:${m.cls==='wet'?'var(--red)':m.cls==='damp'?'var(--orange)':'var(--green)'}">
+        ${m.val}${m.mat === 'Betoni' || m.mat === 'Puu' ? '%' : ' RH%'}
+      </div>
+      <div>
+        <span class="badge ${m.cls}">${classLabel(m.cls)}</span>
+        ${m.note ? `<div style="font-size:0.75rem;color:var(--muted);margin-top:3px">${m.note}</div>` : ''}
+      </div>
+      <button class="del-btn" onclick="deleteMeasurement(${i})">🗑</button>
+    </div>
+  `).join('');
+}
+
+renderMeasurements();
+
+// ─────────────────────────────────────────────
+//  Valokuvat
+// ─────────────────────────────────────────────
+let photos = [];
+
+function handlePhotos(e) {
+  Array.from(e.target.files).forEach(addPhoto);
+  e.target.value = '';
+}
+
+function addPhoto(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    photos.push({ src: ev.target.result, caption: file.name.replace(/\.[^.]+$/, '') });
+    renderPhotos();
+  };
+  reader.readAsDataURL(file);
+}
+
+function deletePhoto(i) {
+  photos.splice(i, 1);
+  renderPhotos();
+}
+
+function renderPhotos() {
+  const grid = document.getElementById('photoGrid');
+  grid.innerHTML = photos.map((p, i) => `
+    <div class="photo-card">
+      <img src="${p.src}" alt="${p.caption}">
+      <div class="photo-meta">
+        <input type="text" value="${p.caption}" placeholder="Kuvateksti"
+               oninput="photos[${i}].caption=this.value" style="width:100%">
+      </div>
+      <button class="photo-del" onclick="deletePhoto(${i})">🗑 Poista</button>
+    </div>
+  `).join('');
+}
+
+function dragOver(e) {
+  e.preventDefault();
+  document.getElementById('uploadArea').classList.add('dragover');
+}
+function dragLeave(e) {
+  document.getElementById('uploadArea').classList.remove('dragover');
+}
+function dropPhoto(e) {
+  e.preventDefault();
+  document.getElementById('uploadArea').classList.remove('dragover');
+  Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')).forEach(addPhoto);
+}
+
+// ─────────────────────────────────────────────
+//  Allekirjoituscanvas
+// ─────────────────────────────────────────────
+const sigCanvas = document.getElementById('sigCanvas');
+const sigCtx = sigCanvas.getContext('2d');
+let sigDrawing = false;
+
+sigCanvas.addEventListener('mousedown', e => { sigDrawing = true; const p = getSigPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); });
+sigCanvas.addEventListener('mousemove', e => { if (!sigDrawing) return; const p = getSigPos(e); sigCtx.lineTo(p.x, p.y); sigCtx.strokeStyle = '#000'; sigCtx.lineWidth = 2; sigCtx.lineCap = 'round'; sigCtx.stroke(); });
+sigCanvas.addEventListener('mouseup', () => sigDrawing = false);
+sigCanvas.addEventListener('mouseleave', () => sigDrawing = false);
+sigCanvas.addEventListener('touchstart', e => { e.preventDefault(); sigDrawing = true; const p = getSigPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); }, { passive: false });
+sigCanvas.addEventListener('touchmove', e => { e.preventDefault(); if (!sigDrawing) return; const p = getSigPos(e); sigCtx.lineTo(p.x, p.y); sigCtx.strokeStyle = '#000'; sigCtx.lineWidth = 2; sigCtx.lineCap = 'round'; sigCtx.stroke(); }, { passive: false });
+sigCanvas.addEventListener('touchend', e => { e.preventDefault(); sigDrawing = false; }, { passive: false });
+
+function getSigPos(e) {
+  const rect = sigCanvas.getBoundingClientRect();
+  const src = e.touches ? e.touches[0] : e;
+  return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+}
+
+function clearSig() { sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height); }
+
+// ─────────────────────────────────────────────
+//  Tallennus / Lataus (localStorage)
+// ─────────────────────────────────────────────
+function getFormData() {
+  return {
+    address: document.getElementById('address').value,
+    owner: document.getElementById('owner').value,
+    surveyor: document.getElementById('surveyor').value,
+    company: document.getElementById('company').value,
+    surveyDate: document.getElementById('surveyDate').value,
+    reportNumber: document.getElementById('reportNumber').value,
+    buildingDesc: document.getElementById('buildingDesc').value,
+    damageLevel: document.getElementById('damageLevel').value,
+    urgency: document.getElementById('urgency').value,
+    conclusions: document.getElementById('conclusions').value,
+    recommendations: document.getElementById('recommendations').value,
+    furtherStudy: document.getElementById('furtherStudy').value,
+    signerName: document.getElementById('signerName').value,
+    signerCert: document.getElementById('signerCert').value,
+    measurements,
+    photos,
+    floorCanvas: canvas.toDataURL(),
+    sigCanvas: sigCanvas.toDataURL()
+  };
+}
+
+function setFormData(d) {
+  if (!d) return;
+  const fields = ['address','owner','surveyor','company','surveyDate','reportNumber',
+    'buildingDesc','damageLevel','urgency','conclusions','recommendations','furtherStudy','signerName','signerCert'];
+  fields.forEach(f => { if (d[f] !== undefined) document.getElementById(f).value = d[f]; });
+  if (d.measurements) { measurements = d.measurements; renderMeasurements(); }
+  if (d.photos) { photos = d.photos; renderPhotos(); }
+  if (d.floorCanvas) {
+    const img = new Image();
+    img.onload = () => ctx.drawImage(img, 0, 0);
+    img.src = d.floorCanvas;
+  }
+  if (d.sigCanvas) {
+    const img = new Image();
+    img.onload = () => sigCtx.drawImage(img, 0, 0);
+    img.src = d.sigCanvas;
+  }
+}
+
+function saveDraft() {
+  localStorage.setItem('kosteuskartoitus_draft', JSON.stringify(getFormData()));
+  alert('Luonnos tallennettu!');
+}
+
+function loadDraft() {
+  const raw = localStorage.getItem('kosteuskartoitus_draft');
+  if (!raw) { alert('Ei tallennettua luonnosta.'); return; }
+  setFormData(JSON.parse(raw));
+  alert('Luonnos ladattu!');
+}
+
+// ─────────────────────────────────────────────
+//  PDF-vienti  (window.print + html2canvas fallback)
+// ─────────────────────────────────────────────
+function exportPDF() {
+  // Embed canvas images into img tags so they survive print
+  prepareForPrint();
+  window.print();
+}
+
+function prepareForPrint() {
+  // Replace canvases with inline images that print correctly
+  const floorImg = document.getElementById('floorCanvasPrint');
+  if (!floorImg) {
+    const img = document.createElement('img');
+    img.id = 'floorCanvasPrint';
+    img.src = canvas.toDataURL();
+    img.style.cssText = 'width:100%;border-radius:8px;display:none';
+    img.className = 'print-only-img';
+    canvas.parentNode.insertBefore(img, canvas);
+  } else {
+    floorImg.src = canvas.toDataURL();
+  }
+
+  const sigImg = document.getElementById('sigCanvasPrint');
+  if (!sigImg) {
+    const img = document.createElement('img');
+    img.id = 'sigCanvasPrint';
+    img.src = sigCanvas.toDataURL();
+    img.style.cssText = 'max-width:400px;border:1px solid #ccc;border-radius:6px;display:none';
+    img.className = 'print-only-img';
+    sigCanvas.parentNode.insertBefore(img, sigCanvas);
+  } else {
+    sigImg.src = sigCanvas.toDataURL();
+  }
+}
+
+// Print-only style injection
+const printStyle = document.createElement('style');
+printStyle.textContent = `
+  @media print {
+    canvas { display: none !important; }
+    .print-only-img { display: block !important; }
+    .sig-canvas-wrap canvas { display: none !important; }
+  }
+`;
+document.head.appendChild(printStyle);
+
+// ─────────────────────────────────────────────
+//  Init: aseta tänään päivämäärä
+// ─────────────────────────────────────────────
+document.getElementById('surveyDate').value = new Date().toISOString().slice(0, 10);
+</script>
+</body>
+</html>
