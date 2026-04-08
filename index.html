@@ -106,7 +106,7 @@
   .gantt-header { display: flex; margin-bottom: 6px; }
   .gantt-header .col-name { width: 160px; flex-shrink: 0; }
   .gantt-header .col-worker { width: 120px; flex-shrink: 0; font-size: .78rem; }
-  .gantt-header .col-timeline { flex: 1; display: flex; }
+  .gantt-header .col-timeline { flex: 1; display: flex; position: relative; }
   .gantt-header .day-label { font-size: .7rem; color: var(--muted); text-align: center; overflow: hidden; }
 
   .gantt-row {
@@ -160,6 +160,19 @@
   .note-meta { font-size: .78rem; color: var(--muted); margin-top: 2px; }
   .note-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; padding: 0 4px; }
   .note-del:hover { color: var(--purku); }
+
+  /* ── Today marker ── */
+  .today-line {
+    position: absolute; top: 0; bottom: 0; width: 2px;
+    background: rgba(231,76,60,.8); pointer-events: none; z-index: 5;
+  }
+  .today-line-label {
+    position: absolute; top: 0; left: 50%;
+    transform: translateX(-50%);
+    font-size: .62rem; font-weight: 700; color: var(--purku);
+    white-space: nowrap; background: var(--card);
+    padding: 1px 4px; border-radius: 3px; line-height: 1.5;
+  }
 
   /* ── Empty state ── */
   .empty { text-align: center; padding: 40px 0; color: var(--muted); font-size: .95rem; }
@@ -540,6 +553,12 @@ function renderGantt() {
 
   const totalDays = Math.max(1, Math.round((maxD - minD) / 86400000) + 1);
 
+  // Today marker
+  const todayD = new Date(); todayD.setHours(0,0,0,0);
+  const todayOff = Math.round((todayD - minD) / 86400000);
+  const todayPct = (todayOff / totalDays * 100).toFixed(3);
+  const showToday = todayOff >= 0 && todayOff <= totalDays;
+
   // Build day headers
   const LABEL_STEP = totalDays <= 14 ? 1 : totalDays <= 31 ? 2 : totalDays <= 60 ? 7 : 14;
   let headerHTML = '<div class="gantt-header">'
@@ -553,6 +572,7 @@ function renderGantt() {
     const pct = (1 / totalDays * 100).toFixed(3);
     headerHTML += `<div class="day-label" style="width:${pct}%">${lbl}</div>`;
   }
+  if (showToday) headerHTML += `<div class="today-line" style="left:${todayPct}%"><div class="today-line-label">Tänään</div></div>`;
   headerHTML += '</div></div>';
 
   // Build rows
@@ -575,6 +595,7 @@ function renderGantt() {
                title="${phaseName(t.phase)}: ${fmt(s)} – ${fmt(e)}">
             ${widthPct > 8 ? phaseName(t.phase) : ""}
           </div>
+          ${showToday ? `<div class="today-line" style="left:${todayPct}%"></div>` : ""}
         </div>
       </div>`;
   });
