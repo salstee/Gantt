@@ -317,6 +317,95 @@
     .price-badge { font-size: 1.1rem; }
     .popularity-bar-bg { width: 120px; }
   }
+
+  /* ── Settings card ── */
+  .settings-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 22px;
+    overflow: hidden;
+  }
+  .settings-toggle {
+    padding: 14px 22px;
+    font-size: .82rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .7px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    user-select: none;
+    transition: background .15s;
+  }
+  .settings-toggle:hover { background: var(--bg); }
+  .settings-body { padding: 0 22px 22px; }
+  .settings-hint { font-size: .75rem; color: var(--muted); margin-top: 10px; line-height: 1.6; }
+  .settings-hint a { color: var(--primary); }
+
+  /* ── Tori.fi search card ── */
+  .tori-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 22px;
+    margin-bottom: 22px;
+  }
+  .tori-card h2 {
+    font-size: .85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .7px;
+    color: var(--muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .tori-search-row {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+    margin-bottom: 12px;
+  }
+  .tori-search-row .field { flex: 1; margin: 0; }
+  .tori-search-row .field input { height: 100%; }
+  .btn-tori {
+    background: linear-gradient(135deg, #E67E22, #CA6F1E);
+    color: #fff;
+    flex: 0 0 auto;
+    min-width: 76px;
+    border: none;
+    border-radius: 9px;
+    font-size: .95rem;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0 18px;
+    transition: opacity .2s, box-shadow .2s;
+  }
+  .btn-tori:hover { opacity: .9; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+  .btn-tori:disabled { opacity: .55; cursor: not-allowed; }
+  .tori-result-item {
+    padding: 11px 13px;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: border-color .2s, background .15s;
+  }
+  .tori-result-item:hover { border-color: var(--primary); background: var(--bg); }
+  .tori-result-title { font-size: .92rem; font-weight: 600; color: var(--text); line-height: 1.4; }
+  .tori-result-meta  { font-size: .76rem; color: var(--muted); margin-top: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .tori-result-price { color: var(--primary); font-weight: 700; font-size: .82rem; }
+  .tori-result-link  { color: var(--accent); text-decoration: none; }
+  .tori-result-link:hover { text-decoration: underline; }
+  .tori-spinner { text-align: center; padding: 18px; color: var(--muted); font-size: .9rem; }
+  #toriStatus { margin-bottom: 8px; border-radius: 9px; padding: 0; font-size: .88rem; font-weight: 600; }
+  #toriStatus.err  { background: #FADBD8; color: #922B21; padding: 10px 14px; }
+  #toriStatus.warn { background: var(--accent-light); color: #784212; padding: 10px 14px; }
+  #toriStatus.info { background: var(--green-light); color: var(--green); padding: 10px 14px; }
 </style>
 </head>
 <body>
@@ -345,6 +434,41 @@
 
   <!-- Status -->
   <div id="status"></div>
+
+  <!-- Settings: API key -->
+  <div class="settings-card">
+    <div class="settings-toggle" onclick="toggleSettings()">
+      <span>⚙️ Asetukset – RapidAPI-avain (Tori.fi-haku)</span>
+      <span id="settingsChevron">▼</span>
+    </div>
+    <div class="settings-body" id="settingsBody" style="display:none">
+      <div class="field" style="margin-bottom:12px">
+        <label>RapidAPI-avain</label>
+        <input type="password" id="fApiKey" placeholder="Liitä RapidAPI-avaimesi tähän">
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-save" onclick="saveApiKey()" style="max-width:180px">💾 Tallenna avain</button>
+      </div>
+      <p class="settings-hint">
+        Avain tallennetaan vain tähän selaimeen (localStorage).<br>
+        Hanki ilmainen avain: <a href="https://rapidapi.com/Nubezzi/api/huuto-net-tori-fi-item-finder" target="_blank" rel="noopener">RapidAPI → Nubezzi / tori.fi-huuto.net-API</a>
+      </p>
+    </div>
+  </div>
+
+  <!-- Tori.fi search -->
+  <div class="tori-card">
+    <h2>🔍 Hae Tori.fi:stä</h2>
+    <div class="tori-search-row">
+      <div class="field">
+        <input type="text" id="toriQuery" placeholder="esim. nahkatakki, iPhone 11, LEGO..."
+               onkeydown="if(event.key==='Enter') toriSearch()">
+      </div>
+      <button class="btn-tori" id="toriBtn" onclick="toriSearch()">Hae</button>
+    </div>
+    <div id="toriStatus"></div>
+    <div id="toriResults"></div>
+  </div>
 
   <!-- Form -->
   <div class="form-card">
@@ -616,8 +740,167 @@ function hideStatus() {
   el.textContent = '';
 }
 
+// ── API key helpers ───────────────────────────────────────────────────
+const API_KEY_STORAGE = 'sh_rapidapi_key';
+
+function loadApiKey() {
+  return localStorage.getItem(API_KEY_STORAGE) || '';
+}
+
+function saveApiKey() {
+  const val = document.getElementById('fApiKey').value.trim();
+  if (!val) { showStatus('Avain ei voi olla tyhjä.', 'err'); return; }
+  localStorage.setItem(API_KEY_STORAGE, val);
+  showStatus('🔑 API-avain tallennettu!', 'ok');
+}
+
+function toggleSettings() {
+  const body    = document.getElementById('settingsBody');
+  const chevron = document.getElementById('settingsChevron');
+  const open    = body.style.display === 'block';
+  body.style.display = open ? 'none' : 'block';
+  chevron.textContent = open ? '▼' : '▲';
+}
+
+// ── Tori.fi fetch ─────────────────────────────────────────────────────
+async function toriFetch(query) {
+  const key = loadApiKey();
+  if (!key) return { ok: false, error: 'Aseta ensin RapidAPI-avain asetuksista (⚙️ Asetukset).' };
+
+  const url = `https://huuto-net-tori-fi-item-finder.p.rapidapi.com/tori/${encodeURIComponent(query)}`;
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'x-rapidapi-host': 'huuto-net-tori-fi-item-finder.p.rapidapi.com',
+        'x-rapidapi-key':  key,
+      },
+    });
+    if (res.status === 401 || res.status === 403)
+      return { ok: false, error: 'Virheellinen API-avain. Tarkista avain asetuksista.' };
+    if (res.status === 429)
+      return { ok: false, error: 'Liian monta hakua. Odota hetki ja yritä uudelleen.' };
+    if (!res.ok)
+      return { ok: false, error: `Hakuvirhe (HTTP ${res.status}). Yritä uudelleen.` };
+    const body = await res.json();
+    const items = Array.isArray(body) ? body : (body.items || body.results || []);
+    return { ok: true, items };
+  } catch {
+    return { ok: false, error: 'Verkkovirhe. Tarkista internet-yhteys.' };
+  }
+}
+
+// ── Price extraction ──────────────────────────────────────────────────
+function extractPrice(text) {
+  const m = String(text).match(/(\d[\d\s]*(?:[.,]\d{1,2})?)\s*€/);
+  if (!m) return null;
+  const v = parseFloat(m[1].replace(/\s/g, '').replace(',', '.'));
+  return isNaN(v) ? null : v;
+}
+
+// ── Category detection from query ─────────────────────────────────────
+const CAT_KEYWORDS = [
+  ['Elektroniikka', ['puhelin','iphone','samsung','tietokone','läppäri','tabletti','tv ','televisio','pelikonsoli','nintendo','playstation','xbox','kamera','kuulokkeet','kannettava']],
+  ['Vaatteet',      ['takki','paita','housut','mekko','farkut','kenkä','saapas','hattu','reppu','fleece','haalarit','lumipuku','neule','huppari','puku','pusero']],
+  ['Huonekalut',    ['sohva','tuoli','pöytä','kaappi','hylly','patja','sänky','lipasto','komero','nojatuoli','rahi','valaisi']],
+  ['Kirjat',        ['kirja','romaani','oppikirja','muumikirja','tietokirja','sarjakuva','lehti']],
+  ['Lelut',         ['lego','lelu','barbie','nukke','palapeli','lautapeli']],
+  ['Urheilu',       ['suksi','luistin','pyörä','polkupyörä','tennis','golf','kuntopyörä','soutulaite','retkeil','teltta','makuupussi','sauvakävely','hiihto']],
+  ['Keittiö',       ['keittiö','astia','pannu','kattila','kahvinkeitin','mikro','monitoimikone','blenderi','leivänpaahdin','vedenkeitin']],
+  ['Työkalut',      ['porakone','sirkke','akkutyökalu','hitsaus','kiintoavain','vasara','tikka','ruuvitaltta']],
+  ['Asusteet',      ['kello','rannekello','koru','korvarengas','aurinkolasi','lompakko','laukku','käsilaukku']],
+];
+
+function detectCategory(query) {
+  const q = query.toLowerCase();
+  for (const [cat, kws] of CAT_KEYWORDS) {
+    if (kws.some(kw => q.includes(kw))) return cat;
+  }
+  return 'Muu';
+}
+
+// ── Tori.fi search UI ─────────────────────────────────────────────────
+let _toriItems = [];
+let _toriQuery = '';
+
+async function toriSearch() {
+  const query    = document.getElementById('toriQuery').value.trim();
+  const btn      = document.getElementById('toriBtn');
+  const statusEl = document.getElementById('toriStatus');
+  const resultsEl= document.getElementById('toriResults');
+
+  if (!query) return;
+
+  btn.disabled    = true;
+  btn.textContent = '⏳';
+  statusEl.className  = '';
+  statusEl.textContent= '';
+  resultsEl.innerHTML = '<div class="tori-spinner">Haetaan Tori.fi:stä…</div>';
+
+  const result = await toriFetch(query);
+
+  btn.disabled    = false;
+  btn.textContent = 'Hae';
+
+  if (!result.ok) {
+    statusEl.className  = 'err';
+    statusEl.textContent= result.error;
+    resultsEl.innerHTML = '';
+    return;
+  }
+
+  if (!result.items.length) {
+    statusEl.className  = 'warn';
+    statusEl.textContent= 'Ei tuloksia. Kokeile eri hakusanaa.';
+    resultsEl.innerHTML = '';
+    return;
+  }
+
+  _toriItems = result.items;
+  _toriQuery = query;
+  renderToriResults();
+}
+
+function renderToriResults() {
+  const el    = document.getElementById('toriResults');
+  const slice = _toriItems.slice(0, 10);
+
+  document.getElementById('toriStatus').className  = 'info';
+  document.getElementById('toriStatus').textContent = `${_toriItems.length} tulosta – klikkaa valitaksesi tuotteen.`;
+
+  el.innerHTML = slice.map((item, i) => {
+    const price    = extractPrice(item.text);
+    const priceStr = price !== null ? formatPrice(price) : '– €';
+    const safeUrl  = esc(item.url || '');
+    return `
+      <div class="tori-result-item" onclick="applyToriResult(${i})">
+        <div class="tori-result-title">${esc(item.text)}</div>
+        <div class="tori-result-meta">
+          <span class="tori-result-price">${priceStr}</span>
+          ${safeUrl ? `<a class="tori-result-link" href="${safeUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Avaa Torissa ↗</a>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function applyToriResult(index) {
+  const item = _toriItems[index];
+  if (!item) return;
+  const price = extractPrice(item.text);
+  const cat   = detectCategory(_toriQuery);
+
+  document.getElementById('fName').value     = item.text;
+  document.getElementById('fDesc').value     = item.url || '';
+  document.getElementById('fCategory').value = cat;
+  if (price !== null) document.getElementById('fPrice').value = price;
+
+  window.scrollTo({ top: document.querySelector('.form-card').offsetTop - 20, behavior: 'smooth' });
+  showStatus('📋 Tiedot täytetty – tarkista nimi ja hinta, sitten tallenna!', 'ok');
+}
+
 // ── Init ──────────────────────────────────────────────────────────────
-document.getElementById('fDate').value = todayISO();
+document.getElementById('fDate').value   = todayISO();
+document.getElementById('fApiKey').value = loadApiKey();
 renderHero();
 renderHistory();
 </script>
